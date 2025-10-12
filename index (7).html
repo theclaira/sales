@@ -1,0 +1,544 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Race to the Summit</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #4b0082, #00b7eb); /* Blue/purple gradient */
+            color: #ffffff;
+            text-align: center; /* Center top part */
+        }
+        h1, h2, h3 {
+            color: #ffeb3b; /* Bright yellow for headers */
+        }
+        select, input, button {
+            padding: 10px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        select {
+            background: #ff69b4; /* Hot pink dropdown */
+            color: #fff;
+        }
+        input {
+            background: #e0ffff; /* Light cyan input */
+            color: #333;
+        }
+        button {
+            background: #32cd32; /* Lime green button */
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #228b22; /* Darker green on hover */
+        }
+        #map-container {
+            position: relative;
+            height: 300px; /* Increased height for complex road */
+            margin: 20px auto;
+            overflow: hidden;
+            width: 100%;
+        }
+        #map-canvas {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #87ceeb, #228b22); /* Sky to grass */
+        }
+        #progress-path-mitch {
+            stroke: #ff4500; /* Orange-red for Mitch */
+            stroke-width: 10;
+            fill: none;
+            transition: stroke-dashoffset 0.5s;
+        }
+        #progress-path-paul {
+            stroke: #00b7eb; /* Cyan for Paul */
+            stroke-width: 10;
+            fill: none;
+            transition: stroke-dashoffset 0.5s;
+        }
+        #progress-path-guest {
+            stroke: #ffeb3b; /* Yellow for Guest */
+            stroke-width: 10;
+            fill: none;
+            transition: stroke-dashoffset 0.5s;
+        }
+        #progress-path-pauline {
+            stroke: #ff69b4; /* Hot pink for Pauline */
+            stroke-width: 10;
+            fill: none;
+            transition: stroke-dashoffset 0.5s;
+        }
+        #road {
+            stroke: #808080; /* Gray road */
+            stroke-width: 20;
+            fill: none;
+            stroke-linecap: round;
+        }
+        .marker {
+            position: absolute;
+            font-size: 24px;
+        }
+        #present {
+            position: absolute;
+            font-size: 30px;
+            right: 10px;
+            top: 190px; /* Aligned with road end */
+        }
+        .milestone {
+            position: absolute;
+            font-size: 20px;
+        }
+        #prize {
+            display: none;
+            margin: 20px auto;
+            padding: 15px;
+            background: #ff69b4; /* Hot pink prize box */
+            border: 2px solid #ffd700; /* Gold border */
+            border-radius: 10px;
+            color: #fff;
+            width: fit-content;
+        }
+        #sales-list {
+            margin-top: 10px;
+            background: rgba(255, 255, 255, 0.2); /* Semi-transparent white */
+            padding: 10px;
+            border-radius: 5px;
+            text-align: left;
+        }
+        #sales-list li {
+            color: #e0ffff; /* Light cyan for list items */
+            margin: 5px 0;
+        }
+        #leaderboard {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.3); /* Semi-transparent black */
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+        }
+        #leaderboard table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #e0ffff;
+        }
+        #leaderboard th, #leaderboard td {
+            padding: 8px;
+            border: 1px solid #ffd700; /* Gold border */
+        }
+        #leaderboard th {
+            background: #ff69b4; /* Hot pink header */
+        }
+        #quests {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.3); /* Semi-transparent black */
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+            color: #e0ffff;
+        }
+        #quests ul li.completed {
+            color: #32cd32; /* Lime green for completed quests */
+            text-decoration: line-through;
+        }
+        #how-to-play {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.3); /* Semi-transparent black */
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+            color: #e0ffff; /* Light cyan text */
+        }
+        #how-to-play h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sales Race to the Summit</h1>
+    
+    <div>
+        <label for="name">Select Your Name:</label>
+        <select id="name">
+            <option value="">-- Choose Name --</option>
+            <option value="Mitch">Mitch</option>
+            <option value="Paul">Paul</option>
+            <option value="Guest">Guest</option>
+            <option value="Pauline">Pauline</option>
+        </select>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <label for="donor-age">Enter Donor Age for Sale:</label>
+        <input type="number" id="donor-age" min="1" placeholder="Age">
+        <button onclick="addSale()">Add Sale</button>
+    </div>
+    
+    <div id="map-container">
+        <svg id="map-canvas" viewBox="0 0 800 300">
+            <!-- Windy road with curves and turns -->
+            <path id="road" 
+                  d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" 
+                  stroke="#808080" stroke-width="20" fill="none" stroke-linecap="round"/>
+            <path id="progress-path-mitch" 
+                  d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" 
+                  stroke-dasharray="0" stroke-dashoffset="0"/>
+            <path id="progress-path-paul" 
+                  d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" 
+                  stroke-dasharray="0" stroke-dashoffset="0"/>
+            <path id="progress-path-guest" 
+                  d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" 
+                  stroke-dasharray="0" stroke-dashoffset="0"/>
+            <path id="progress-path-pauline" 
+                  d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" 
+                  stroke-dasharray="0" stroke-dashoffset="0"/>
+            <!-- Milestones along the road -->
+            <circle cx="200" cy="200" r="10" fill="#ffd700" />
+            <circle cx="400" cy="200" r="10" fill="#ffd700" />
+            <circle cx="600" cy="200" r="10" fill="#ffd700" />
+        </svg>
+        <div id="marker-mitch" class="marker">😎</div> <!-- Cool face for Mitch -->
+        <div id="marker-paul" class="marker">🧙</div> <!-- Wizard for Paul -->
+        <div id="marker-guest" class="marker">🐉</div> <!-- Dragon for Guest -->
+        <div id="marker-pauline" class="marker">🦸</div> <!-- Superhero for Pauline -->
+        <div id="present">🎁</div>
+        <!-- Milestone emojis -->
+        <div class="milestone" style="left: 190px; top: 180px;">🌟</div>
+        <div class="milestone" style="left: 390px; top: 180px;">🏆</div>
+        <div class="milestone" style="left: 590px; top: 180px;">💰</div>
+    </div>
+    
+    <div id="prize">
+        <h3>Congratulations! You've reached the end!</h3>
+        <p>Your prize is: A luxury vacation! 🎉</p>
+    </div>
+    
+    <div id="leaderboard">
+        <h3>Leaderboard</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Sales Count</th>
+                    <th>Average Donor Age</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard-body"></tbody>
+        </table>
+    </div>
+    
+    <div id="quests">
+        <h3>Quests</h3>
+        <ul id="quest-list">
+            <li id="quest-5-sales">Log 5 sales before 12:00 PM</li>
+            <li id="quest-first-sale">Make the first sale of the day</li>
+            <li id="quest-age-streak">2-day streak with average donor age over 40</li>
+        </ul>
+    </div>
+    
+    <div id="how-to-play">
+        <h3>How to Play</h3>
+        <p>Welcome, this is going to be a lil journey. A game. A glorious sales race to the mysterious prize at the end. 🎁</p>
+        <p>Here’s how to play:</p>
+        <ul>
+            <li><strong>Select Your Name:</strong> Pretty straight forward, can't get this wrong I don't think</li>
+            <li><strong>Enter Donor Age:</strong> Pop in the age of your donor. The older they are, the better your score.</li>
+            <li><strong>Add Sale:</strong> Tap “Add Sale” like you just nailed your pitch. Because you did.</li>
+            <li><strong>Track Progress:</strong> You’ll see yourself scooting along a little road map. It’s bendy, it’s cute, it’s your new best friend. Your progress is based on sales, donor age, and side quests completed.</li>
+            <li><strong>Milestones:</strong> Hit exciting little markers on your way to greatness: 🌟, 🏆, 💰.</li>
+            <li><strong>Reach the Prize:</strong> When your progress hits 100%, the 🎁 unlocks. What is it? We're not telling. That's how surprises work silly</li>
+            <li><strong>Complete Quests:</strong> Quests reset daily, giving you fresh chances to earn bonus points each day. They get you to that prize quicker!</li>
+        </ul>
+    </div>
+    
+    <h3>Sales Log:</h3>
+    <ul id="sales-list"></ul>
+    
+    <script>
+        let sales = [];
+        const goal = 3000; // Requires ~100 sales of age 30
+        const path = document.getElementById('road');
+        const pathLength = path.getTotalLength();
+        let firstSaleToday = {};
+        const milestonePoints = [25, 50, 75]; // Milestones at 25%, 50%, 75%
+        const progressPaths = {
+            mitch: document.getElementById('progress-path-mitch'),
+            paul: document.getElementById('progress-path-paul'),
+            guest: document.getElementById('progress-path-guest'),
+            pauline: document.getElementById('progress-path-pauline')
+        };
+        const markers = {
+            mitch: document.getElementById('marker-mitch'),
+            paul: document.getElementById('marker-paul'),
+            guest: document.getElementById('marker-guest'),
+            pauline: document.getElementById('marker-pauline')
+        };
+        const lastProgressPercent = { mitch: 0, paul: 0, guest: 0, pauline: 0 };
+        let questCompletion = {
+            fiveSales: { Mitch: {}, Paul: {}, Guest: {}, Pauline: {} },
+            firstSale: {},
+            ageStreak: { Mitch: {}, Paul: {}, Guest: {}, Pauline: {} }
+        };
+
+        // Initialize progress paths
+        Object.values(progressPaths).forEach(p => {
+            p.style.strokeDasharray = pathLength;
+            p.style.strokeDashoffset = pathLength;
+        });
+
+        function addSale() {
+            const ageInput = document.getElementById('donor-age');
+            const age = parseInt(ageInput.value);
+            const name = document.getElementById('name').value;
+            
+            if (!name) {
+                alert('Please select your name first.');
+                return;
+            }
+            if (isNaN(age) || age <= 0) {
+                alert('Please enter a valid donor age.');
+                return;
+            }
+            
+            const now = new Date();
+            const aedtOffset = 11 * 60;
+            const localTime = new Date(now.getTime() + (aedtOffset * 60 * 1000));
+            const sale = { name, age, timestamp: localTime };
+            
+            sales.push(sale);
+            ageInput.value = '';
+            
+            updateSalesList();
+            updateProgress();
+            updateLeaderboard();
+            updateQuests(sale);
+        }
+        
+        function updateSalesList() {
+            const list = document.getElementById('sales-list');
+            list.innerHTML = '';
+            sales.forEach((sale, index) => {
+                const li = document.createElement('li');
+                li.textContent = `Sale ${index + 1}: ${sale.name} - Donor Age: ${sale.age} (Time: ${sale.timestamp.toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney' })})`;
+                list.appendChild(li);
+            });
+        }
+        
+        function updateProgress() {
+            if (sales.length === 0) return;
+            
+            const stats = {};
+            sales.forEach(sale => {
+                const lowerName = sale.name.toLowerCase();
+                if (!stats[lowerName]) {
+                    stats[lowerName] = { count: 0, totalAge: 0, salesBeforeNoon: {}, dailySales: {} };
+                }
+                stats[lowerName].count += 1;
+                stats[lowerName].totalAge += sale.age;
+                const saleDate = sale.timestamp.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+                if (sale.timestamp.getHours() < 12) {
+                    if (!stats[lowerName].salesBeforeNoon[saleDate]) {
+                        stats[lowerName].salesBeforeNoon[saleDate] = 0;
+                    }
+                    stats[lowerName].salesBeforeNoon[saleDate] += 1;
+                }
+                if (!stats[lowerName].dailySales[saleDate]) {
+                    stats[lowerName].dailySales[saleDate] = { totalAge: 0, count: 0 };
+                }
+                stats[lowerName].dailySales[saleDate].totalAge += sale.age;
+                stats[lowerName].dailySales[saleDate].count += 1;
+            });
+            
+            Object.keys(progressPaths).forEach(lowerName => {
+                let points = 0;
+                if (stats[lowerName]) {
+                    const avgAge = stats[lowerName].totalAge / stats[lowerName].count;
+                    points = stats[lowerName].count * avgAge;
+                    const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+                    const playerName = lowerName.charAt(0).toUpperCase() + lowerName.slice(1);
+                    const completedQuests = (stats[lowerName].salesBeforeNoon[today] >= 5 ? 1 : 0) + 
+                        (firstSaleToday[today] && firstSaleToday[today].name.toLowerCase() === lowerName ? 1 : 0) +
+                        (questCompletion.ageStreak[playerName][today] ? 1 : 0);
+                    points += completedQuests * 10;
+                }
+                
+                const progressPercent = Math.min((points / goal) * 100, 100);
+                const dashOffset = pathLength * (1 - progressPercent / 100);
+                progressPaths[lowerName].style.strokeDashoffset = dashOffset;
+                
+                milestonePoints.forEach(point => {
+                    if (lastProgressPercent[lowerName] < point && progressPercent >= point) {
+                        confetti({
+                            particleCount: 100,
+                            spread: 70,
+                            origin: { y: 0.6 }
+                        });
+                    }
+                });
+                lastProgressPercent[lowerName] = progressPercent;
+                
+                const progressFraction = progressPercent / 100;
+                const point = path.getPointAtLength(progressFraction * pathLength);
+                markers[lowerName].style.left = `${point.x}px`;
+                markers[lowerName].style.top = `${point.y}px`;
+                
+                if (progressPercent >= 100) {
+                    document.getElementById('prize').style.display = 'block';
+                    confetti({
+                        particleCount: 200,
+                        spread: 100,
+                        origin: { y: 0.6 }
+                    });
+                }
+            });
+        }
+        
+        function updateLeaderboard() {
+            const leaderboardBody = document.getElementById('leaderboard-body');
+            leaderboardBody.innerHTML = '';
+            
+            const stats = {};
+            sales.forEach(sale => {
+                const lowerName = sale.name.toLowerCase();
+                if (!stats[lowerName]) {
+                    stats[lowerName] = { count: 0, totalAge: 0, salesBeforeNoon: {}, dailySales: {} };
+                }
+                stats[lowerName].count += 1;
+                stats[lowerName].totalAge += sale.age;
+                const saleDate = sale.timestamp.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+                if (sale.timestamp.getHours() < 12) {
+                    if (!stats[lowerName].salesBeforeNoon[saleDate]) {
+                        stats[lowerName].salesBeforeNoon[saleDate] = 0;
+                    }
+                    stats[lowerName].salesBeforeNoon[saleDate] += 1;
+                }
+                if (!stats[lowerName].dailySales[saleDate]) {
+                    stats[lowerName].dailySales[saleDate] = { totalAge: 0, count: 0 };
+                }
+                stats[lowerName].dailySales[saleDate].totalAge += sale.age;
+                stats[lowerName].dailySales[saleDate].count += 1;
+            });
+            
+            const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+            const leaderboard = Object.keys(stats).map(lowerName => {
+                const name = lowerName.charAt(0).toUpperCase() + lowerName.slice(1);
+                const avgAge = stats[lowerName].totalAge / stats[lowerName].count;
+                return {
+                    name,
+                    count: stats[lowerName].count,
+                    avgAge
+                };
+            }).sort((a, b) => b.count - a.count || b.avgAge - a.avgAge);
+            
+            leaderboard.forEach(entry => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${entry.name}</td>
+                    <td>${entry.count}</td>
+                    <td>${entry.avgAge.toFixed(1)}</td>
+                `;
+                leaderboardBody.appendChild(row);
+            });
+        }
+        
+        function updateQuests(sale) {
+            const now = sale.timestamp;
+            const date = now.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+            
+            const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+            if (!questCompletion.fiveSales[sale.name][today]) {
+                questCompletion.fiveSales[sale.name][today] = false;
+                questCompletion.firstSale[today] = false;
+                questCompletion.ageStreak[sale.name][today] = false;
+                document.getElementById('quest-5-sales').classList.remove('completed');
+                document.getElementById('quest-5-sales').textContent = 'Log 5 sales before 12:00 PM';
+                document.getElementById('quest-first-sale').classList.remove('completed');
+                document.getElementById('quest-first-sale').textContent = 'Make the first sale of the day';
+                document.getElementById('quest-age-streak').classList.remove('completed');
+                document.getElementById('quest-age-streak').textContent = '2-day streak with average donor age over 40';
+            }
+            
+            const salesBeforeNoon = sales.filter(s => {
+                const saleTime = new Date(s.timestamp);
+                return s.name === sale.name && saleTime.getHours() < 12 && saleTime.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' }) === date;
+            }).length;
+            if (salesBeforeNoon >= 5 && !questCompletion.fiveSales[sale.name][date]) {
+                questCompletion.fiveSales[sale.name][date] = true;
+                const quest = document.getElementById('quest-5-sales');
+                quest.classList.add('completed');
+                quest.textContent = `Log 5 sales before 12:00 PM (Completed by ${sale.name})`;
+            }
+            
+            if (!questCompletion.firstSale[date]) {
+                questCompletion.firstSale[date] = true;
+                firstSaleToday[date] = sale;
+                const quest = document.getElementById('quest-first-sale');
+                quest.classList.add('completed');
+                quest.textContent = `Make the first sale of the day (Completed by ${sale.name})`;
+            }
+            
+            const todaySales = sales.filter(s => s.name === sale.name && s.timestamp.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' }) === date);
+            const todayAvgAge = todaySales.length > 0 ? todaySales.reduce((sum, s) => sum + s.age, 0) / todaySales.length : 0;
+            if (todayAvgAge > 40) {
+                const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+                const yesterdaySales = sales.filter(s => s.name === sale.name && s.timestamp.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' }) === yesterday);
+                const yesterdayAvgAge = yesterdaySales.length > 0 ? yesterdaySales.reduce((sum, s) => sum + s.age, 0) / yesterdaySales.length : 0;
+                if (yesterdayAvgAge > 40 && !questCompletion.ageStreak[sale.name][date]) {
+                    questCompletion.ageStreak[sale.name][date] = true;
+                    const quest = document.getElementById('quest-age-streak');
+                    quest.classList.add('completed');
+                    quest.textContent = `2-day streak with average donor age over 40 (Completed by ${sale.name})`;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
