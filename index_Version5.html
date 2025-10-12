@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Race to the Summit</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+        /* Your original CSS styles remain here, unchanged */
+        /* ... (paste your full CSS style block here) ... */
+    </style>
+</head>
+<body>
+    <!-- Your original HTML remains here, unchanged -->
+    <!-- ... (all your layout, map, forms, leaderboard, etc.) ... -->
+
+    <script>
+        // ---- Google Sheets (SheetDB) Integration ----
+        const API_URL = "https://sheetdb.io/api/v1/clmg88cqqdmcj";
+        let sales = [];
+        let firstSaleToday = {};
+        let questCompletion = {
+            fiveSales: { Mitch: {}, Paul: {}, Guest: {}, Pauline: {} },
+            firstSale: {},
+            ageStreak: { Mitch: {}, Paul: {}, Guest: {}, Pauline: {} }
+        };
+
+        // Load sales from SheetDB (Google Sheets)
+        async function loadSalesFromSheetDB() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                sales = data.map(row => ({
+                    name: row.Name,
+                    age: parseInt(row.SaleAmount),
+                    timestamp: new Date(row.Timestamp)
+                }));
+                updateSalesList();
+                updateProgress();
+                updateLeaderboard();
+            } catch (e) {
+                alert("Error loading sales from Google Sheets.");
+            }
+        }
+
+        // Add sale to SheetDB (Google Sheets)
+        async function addSaleToSheetDB(sale) {
+            const payload = {
+                Name: sale.name,
+                SaleAmount: sale.age,
+                Timestamp: sale.timestamp.toISOString()
+            };
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ data: [payload] })
+                });
+                if (res.ok) {
+                    await loadSalesFromSheetDB();
+                } else {
+                    alert("Error recording sale.");
+                }
+            } catch (err) {
+                alert("Network error recording sale.");
+            }
+        }
+
+        // REPLACE your original addSale() with this new version!
+        function addSale() {
+            const ageInput = document.getElementById('donor-age');
+            const age = parseInt(ageInput.value);
+            const name = document.getElementById('name').value;
+
+            if (!name) {
+                alert('Please select your name first.');
+                return;
+            }
+            if (isNaN(age) || age <= 0) {
+                alert('Please enter a valid donor age.');
+                return;
+            }
+
+            const now = new Date();
+            const aedtOffset = 11 * 60;
+            const localTime = new Date(now.getTime() + (aedtOffset * 60 * 1000));
+            const sale = { name, age, timestamp: localTime };
+
+            addSaleToSheetDB(sale);
+
+            ageInput.value = '';
+            // Updates will trigger from loadSalesFromSheetDB
+        }
+
+        // On page load, load from Google Sheets
+        window.onload = function() {
+            loadSalesFromSheetDB();
+        };
+
+        // Optionally reload every 30 seconds for live leaderboard updates
+        setInterval(loadSalesFromSheetDB, 30000);
+
+        // --- All your other code functions (updateSalesList, updateProgress, etc.) stay the same ---
+        // (Do NOT change your display, UI, or logic functions below this point)
+        // ... (keep everything else as in your original file) ...
+    </script>
+</body>
+</html>
