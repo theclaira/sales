@@ -6,7 +6,6 @@
     <title>Sales Race to the Summit</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
-        /* ... your full CSS unchanged ... */
         body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #4b0082, #00b7eb); color: #ffffff; text-align: center; }
         h1, h2, h3 { color: #ffeb3b; }
         select, input, button { padding: 10px; margin: 5px; border: none; border-radius: 5px; font-size: 16px; }
@@ -35,10 +34,16 @@
         #quests ul li.completed { color: #32cd32; text-decoration: line-through; }
         #how-to-play { margin-top: 20px; background: rgba(0, 0, 0, 0.3); padding: 15px; border-radius: 5px; text-align: left; color: #e0ffff; }
         #how-to-play h3 { margin-top: 0; }
+        @media (max-width: 600px) {
+            #map-container { height: 200px; }
+            #map-canvas { transform: scale(0.8); transform-origin: top; }
+            .marker { font-size: 18px; }
+            .milestone { font-size: 16px; }
+            #present { font-size: 24px; }
+        }
     </style>
 </head>
 <body>
-    <!-- ... Your full HTML layout unchanged ... -->
     <h1>Sales Race to the Summit</h1>
     <div>
         <label for="name">Select Your Name:</label>
@@ -56,9 +61,11 @@
         <button onclick="addSale()">Add Sale</button>
     </div>
     <div id="map-container">
-        <svg id="map-canvas" viewBox="0 0 800 300">
+        <svg id="map-canvas" viewBox="0 0 800 300" aria-label="Progress map showing sales race">
             <path id="road" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke="#808080" stroke-width="20" fill="none" stroke-linecap="round"/>
-            <path id="progress-path-mitch" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
+            <path id="progress-path-mitch" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500  Pulitzer
+
+System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
             <path id="progress-path-paul" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
             <path id="progress-path-guest" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
             <path id="progress-path-pauline" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
@@ -66,14 +73,14 @@
             <circle cx="400" cy="200" r="10" fill="#ffd700" />
             <circle cx="600" cy="200" r="10" fill="#ffd700" />
         </svg>
-        <div id="marker-mitch" class="marker">😎</div>
-        <div id="marker-paul" class="marker">🧙</div>
-        <div id="marker-guest" class="marker">🐉</div>
-        <div id="marker-pauline" class="marker">🦸</div>
-        <div id="present">🎁</div>
-        <div class="milestone" style="left: 190px; top: 180px;">🌟</div>
-        <div class="milestone" style="left: 390px; top: 180px;">🏆</div>
-        <div class="milestone" style="left: 590px; top: 180px;">💰</div>
+        <div id="marker-mitch" class="marker" aria-label="Mitch's position on the progress map">😎</div>
+        <div id="marker-paul" class="marker" aria-label="Paul's position on the progress map">🧙</div>
+        <div id="marker-guest" class="marker" aria-label="Guest's position on the progress map">🐉</div>
+        <div id="marker-pauline" class="marker" aria-label="Pauline's position on the progress map">🦸</div>
+        <div id="present" aria-label="Prize at the end of the progress map">🎁</div>
+        <div class="milestone" style="left: 190px; top: 180px;" aria-label="First milestone">🌟</div>
+        <div class="milestone" style="left: 390px; top: 180px;" aria-label="Second milestone">🏆</div>
+        <div class="milestone" style="left: 590px; top: 180px;" aria-label="Third milestone">💰</div>
     </div>
     <div id="prize"><h3>Congratulations! You've reached the end!</h3><p>Your prize is: Tristan cooking something of your choice! 🎉</p></div>
     <div id="leaderboard">
@@ -84,6 +91,7 @@
                     <th>Name</th>
                     <th>Sales Count</th>
                     <th>Average Donor Age</th>
+                    <th>Progress</th>
                 </tr>
             </thead>
             <tbody id="leaderboard-body"></tbody>
@@ -92,7 +100,7 @@
     <div id="quests">
         <h3>Quests</h3>
         <ul id="quest-list">
-            <li id="quest-5-sales">Log 3 sales before 12:00 PM</li>
+            <li id="quest-5-sales">Log 5 sales before 12:00 PM</li>
             <li id="quest-first-sale">Make the first sale of the day</li>
             <li id="quest-age-streak">2-day streak with average donor age over 40</li>
         </ul>
@@ -129,12 +137,15 @@
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
+                if (!data) throw new Error("No data returned from SheetDB");
                 const rows = Array.isArray(data) ? data : [data];
-                sales = rows.map(row => ({
-                    name: row.Name,
-                    age: parseInt(row.SaleAmount),
-                    timestamp: new Date(row.Timestamp)
-                }));
+                sales = rows
+                    .filter(row => row.Name && !isNaN(parseInt(row.SaleAmount)) && row.Timestamp)
+                    .map(row => ({
+                        name: row.Name,
+                        age: parseInt(row.SaleAmount),
+                        timestamp: new Date(row.Timestamp)
+                    }));
                 updateSalesList();
                 updateProgress();
                 updateLeaderboard();
@@ -159,6 +170,7 @@
                 });
                 if (res.ok) {
                     await loadSalesFromSheetDB();
+                    updateQuests(sale);
                 } else {
                     alert("Error recording sale.");
                 }
@@ -167,7 +179,7 @@
             }
         }
 
-        // --- All your original code below, but addSale now uses SheetDB ---
+        // --- Core Game Logic ---
         const goal = 3000;
         const path = document.getElementById('road');
         const pathLength = path.getTotalLength();
@@ -213,7 +225,6 @@
 
             addSaleToSheetDB(sale);
             ageInput.value = '';
-            // Updates will trigger from loadSalesFromSheetDB
         }
 
         function updateSalesList() {
@@ -255,7 +266,8 @@
                 let points = 0;
                 if (stats[lowerName]) {
                     const avgAge = stats[lowerName].totalAge / stats[lowerName].count;
-                    points = stats[lowerName].count * avgAge;
+                    const cappedAge = Math.min(avgAge, 80); // Cap age at 80 for fair scoring
+                    points = stats[lowerName].count * cappedAge;
                     const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
                     const playerName = lowerName.charAt(0).toUpperCase() + lowerName.slice(1);
                     const completedQuests = (stats[lowerName].salesBeforeNoon[today] >= 5 ? 1 : 0) +
@@ -325,10 +337,16 @@
             const leaderboard = Object.keys(stats).map(lowerName => {
                 const name = lowerName.charAt(0).toUpperCase() + lowerName.slice(1);
                 const avgAge = stats[lowerName].totalAge / stats[lowerName].count;
+                const points = stats[lowerName].count * Math.min(avgAge, 80);
+                const completedQuests = (stats[lowerName].salesBeforeNoon[today] >= 5 ? 1 : 0) +
+                    (firstSaleToday[today] && firstSaleToday[today].name.toLowerCase() === lowerName ? 1 : 0) +
+                    (questCompletion.ageStreak[name][today] ? 1 : 0);
+                const progressPercent = Math.min(((points + completedQuests * 10) / goal) * 100, 100);
                 return {
                     name,
                     count: stats[lowerName].count,
-                    avgAge
+                    avgAge,
+                    progressPercent
                 };
             }).sort((a, b) => b.count - a.count || b.avgAge - a.avgAge);
 
@@ -338,6 +356,7 @@
                     <td>${entry.name}</td>
                     <td>${entry.count}</td>
                     <td>${entry.avgAge.toFixed(1)}</td>
+                    <td>${entry.progressPercent.toFixed(1)}%</td>
                 `;
                 leaderboardBody.appendChild(row);
             });
@@ -346,8 +365,14 @@
         function updateQuests(sale) {
             const now = sale.timestamp;
             const date = now.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
-
             const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+
+            // Reset firstSaleToday if it's a new day
+            if (!firstSaleToday[date]) {
+                firstSaleToday = { [date]: null };
+            }
+
+            // Initialize quest completion for today if not set
             if (!questCompletion.fiveSales[sale.name][today]) {
                 questCompletion.fiveSales[sale.name][today] = false;
                 questCompletion.firstSale[today] = false;
@@ -364,14 +389,18 @@
                 const saleTime = new Date(s.timestamp);
                 return s.name === sale.name && saleTime.getHours() < 12 && saleTime.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' }) === date;
             }).length;
-            if (salesBeforeNoon >= 5 && !questCompletion.fiveSales[sale.name][date]) {
-                questCompletion.fiveSales[sale.name][date] = true;
-                const quest = document.getElementById('quest-5-sales');
-                quest.classList.add('completed');
-                quest.textContent = `Log 5 sales before 12:00 PM (Completed by ${sale.name})`;
+            if (!questCompletion.fiveSales[sale.name][date]) {
+                if (salesBeforeNoon < 5) {
+                    document.getElementById('quest-5-sales').textContent = `Log 5 sales before 12:00 PM (${salesBeforeNoon}/5)`;
+                } else {
+                    questCompletion.fiveSales[sale.name][date] = true;
+                    const quest = document.getElementById('quest-5-sales');
+                    quest.classList.add('completed');
+                    quest.textContent = `Log 5 sales before 12:00 PM (Completed by ${sale.name})`;
+                }
             }
 
-            if (!questCompletion.firstSale[date]) {
+            if (!questCompletion.firstSale[date] && !firstSaleToday[date]) {
                 questCompletion.firstSale[date] = true;
                 firstSaleToday[date] = sale;
                 const quest = document.getElementById('quest-first-sale');
@@ -394,12 +423,44 @@
             }
         }
 
+        function resetQuestsDaily() {
+            const now = new Date();
+            const nextMidnight = new Date(now.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' }));
+            nextMidnight.setDate(nextMidnight.getDate() + 1);
+            const msUntilMidnight = nextMidnight - now;
+            setTimeout(() => {
+                const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
+                ['Mitch', 'Paul', 'Guest', 'Pauline'].forEach(name => {
+                    questCompletion.fiveSales[name][today] = false;
+                    questCompletion.ageStreak[name][today] = false;
+                });
+                questCompletion.firstSale[today] = false;
+                firstSaleToday[today] = null;
+                document.getElementById('quest-5-sales').classList.remove('completed');
+                document.getElementById('quest-5-sales').textContent = 'Log 5 sales before 12:00 PM';
+                document.getElementById('quest-first-sale').classList.remove('completed');
+                document.getElementById('quest-first-sale').textContent = 'Make the first sale of the day';
+                document.getElementById('quest-age-streak').classList.remove('completed');
+                document.getElementById('quest-age-streak').textContent = '2-day streak with average donor age over 40';
+                setInterval(resetQuestsDaily, 24 * 60 * 60 * 1000);
+            }, msUntilMidnight);
+        }
+
         // Load data on page load
         window.onload = function() {
             loadSalesFromSheetDB();
+            resetQuestsDaily();
         };
-        // Optionally reload every 30 seconds for live leaderboard updates
-        setInterval(loadSalesFromSheetDB, 30000);
+
+        // Reload every 30 seconds for live updates, pause when tab is inactive
+        let intervalId = setInterval(loadSalesFromSheetDB, 30000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                clearInterval(intervalId);
+            } else {
+                intervalId = setInterval(loadSalesFromSheetDB, 30000);
+            }
+        });
     </script>
 </body>
 </html>
