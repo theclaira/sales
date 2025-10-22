@@ -63,9 +63,7 @@
     <div id="map-container">
         <svg id="map-canvas" viewBox="0 0 800 300" aria-label="Progress map showing sales race">
             <path id="road" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke="#808080" stroke-width="20" fill="none" stroke-linecap="round"/>
-            <path id="progress-path-mitch" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500  Pulitzer
-
-System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
+            <path id="progress-path-mitch" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
             <path id="progress-path-paul" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
             <path id="progress-path-guest" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
             <path id="progress-path-pauline" d="M 50 250 Q 100 100 200 200 Q 300 300 400 200 Q 500 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" stroke-dashoffset="0"/>
@@ -140,9 +138,15 @@ System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" st
                 if (!data) throw new Error("No data returned from SheetDB");
                 const rows = Array.isArray(data) ? data : [data];
                 sales = rows
-                    .filter(row => row.Name && !isNaN(parseInt(row.SaleAmount)) && row.Timestamp)
+                    .filter(row => {
+                        const isValid = typeof row.Name === 'string' && row.Name.trim() && !isNaN(parseInt(row.SaleAmount)) && row.Timestamp;
+                        if (!isValid) {
+                            console.warn("Invalid row skipped:", row);
+                        }
+                        return isValid;
+                    })
                     .map(row => ({
-                        name: row.Name,
+                        name: row.Name.trim(),
                         age: parseInt(row.SaleAmount),
                         timestamp: new Date(row.Timestamp)
                     }));
@@ -242,6 +246,10 @@ System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" st
 
             const stats = {};
             sales.forEach(sale => {
+                if (!sale.name || typeof sale.name !== 'string') {
+                    console.warn("Skipping invalid sale with missing or non-string name:", sale);
+                    return;
+                }
                 const lowerName = sale.name.toLowerCase();
                 if (!stats[lowerName]) {
                     stats[lowerName] = { count: 0, totalAge: 0, salesBeforeNoon: {}, dailySales: {} };
@@ -266,12 +274,12 @@ System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" st
                 let points = 0;
                 if (stats[lowerName]) {
                     const avgAge = stats[lowerName].totalAge / stats[lowerName].count;
-                    const cappedAge = Math.min(avgAge, 80); // Cap age at 80 for fair scoring
+                    const cappedAge = Math.min(avgAge, 80);
                     points = stats[lowerName].count * cappedAge;
                     const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
                     const playerName = lowerName.charAt(0).toUpperCase() + lowerName.slice(1);
                     const completedQuests = (stats[lowerName].salesBeforeNoon[today] >= 5 ? 1 : 0) +
-                        (firstSaleToday[today] && firstSaleToday[today].name.toLowerCase() === lowerName ? 1 : 0) +
+                        (firstSaleToday[today] && firstSaleToday[today].name && firstSaleToday[today].name.toLowerCase() === lowerName ? 1 : 0) +
                         (questCompletion.ageStreak[playerName][today] ? 1 : 0);
                     points += completedQuests * 10;
                 }
@@ -313,6 +321,10 @@ System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" st
 
             const stats = {};
             sales.forEach(sale => {
+                if (!sale.name || typeof sale.name !== 'string') {
+                    console.warn("Skipping invalid sale with missing or non-string name:", sale);
+                    return;
+                }
                 const lowerName = sale.name.toLowerCase();
                 if (!stats[lowerName]) {
                     stats[lowerName] = { count: 0, totalAge: 0, salesBeforeNoon: {}, dailySales: {} };
@@ -339,7 +351,7 @@ System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" st
                 const avgAge = stats[lowerName].totalAge / stats[lowerName].count;
                 const points = stats[lowerName].count * Math.min(avgAge, 80);
                 const completedQuests = (stats[lowerName].salesBeforeNoon[today] >= 5 ? 1 : 0) +
-                    (firstSaleToday[today] && firstSaleToday[today].name.toLowerCase() === lowerName ? 1 : 0) +
+                    (firstSaleToday[today] && firstSaleToday[today].name && firstSaleToday[today].name.toLowerCase() === lowerName ? 1 : 0) +
                     (questCompletion.ageStreak[name][today] ? 1 : 0);
                 const progressPercent = Math.min(((points + completedQuests * 10) / goal) * 100, 100);
                 return {
@@ -363,6 +375,10 @@ System: 100 600 200 Q 650 250 700 200 Q 750 150 750 200" stroke-dasharray="0" st
         }
 
         function updateQuests(sale) {
+            if (!sale.name || typeof sale.name !== 'string') {
+                console.warn("Skipping quest update for invalid sale:", sale);
+                return;
+            }
             const now = sale.timestamp;
             const date = now.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
             const today = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
