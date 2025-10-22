@@ -122,6 +122,7 @@
     <script>
         // -- SheetDB Integration --
         const API_URL = "https://sheetdb.io/api/v1/clmg88cqqdmcj";
+        const BEARER_TOKEN = "kldr9kla168m8pno93qd6988re3f8vsezwwtgcti";
         let sales = [];
         let firstSaleToday = {};
         let questCompletion = {
@@ -133,7 +134,12 @@
         // Load sales from Google Sheets (SheetDB)
         async function loadSalesFromSheetDB() {
             try {
-                const res = await fetch(API_URL);
+                const res = await fetch(API_URL, {
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${BEARER_TOKEN}`
+                    }
+                });
                 const data = await res.json();
                 if (!data) throw new Error("No data returned from SheetDB");
                 const rows = Array.isArray(data) ? data : [data];
@@ -166,20 +172,29 @@
                 SaleAmount: sale.age,
                 Timestamp: sale.timestamp.toISOString()
             };
+            console.log("Sending payload to SheetDB:", payload);
             try {
                 const res = await fetch(API_URL, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${BEARER_TOKEN}`
+                    },
                     body: JSON.stringify({ data: [payload] })
                 });
                 if (res.ok) {
+                    console.log("Sale recorded successfully");
                     await loadSalesFromSheetDB();
                     updateQuests(sale);
                 } else {
-                    alert("Error recording sale.");
+                    const errorData = await res.json().catch(() => ({}));
+                    const errorMessage = errorData.message || `HTTP ${res.status}: Failed to record sale`;
+                    alert(`Error recording sale: ${errorMessage}`);
+                    console.error("SheetDB POST error:", { status: res.status, errorData });
                 }
             } catch (err) {
-                alert("Network error recording sale.");
+                alert("Network error recording sale: " + err.message);
+                console.error("SheetDB network error:", err);
             }
         }
 
